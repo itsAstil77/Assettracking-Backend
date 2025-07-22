@@ -175,3 +175,4 @@
 /home/piq2/GitAssetTracking/Assettracking-Backend/Asset-Tracking/AssetTracking/obj/Debug/net8.0/AssetTracking.pdb
 /home/piq2/GitAssetTracking/Assettracking-Backend/Asset-Tracking/AssetTracking/obj/Debug/net8.0/AssetTracking.genruntimeconfig.cache
 /home/piq2/GitAssetTracking/Assettracking-Backend/Asset-Tracking/AssetTracking/obj/Debug/net8.0/ref/AssetTracking.dll
+/home/piq2/GitAssetTracking/Assettracking-Backend/Asset-Tracking/AssetTracking/obj/Debug/net8.0/AssetTracking.sourcelink.json

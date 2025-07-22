@@ -67,17 +67,39 @@ namespace YourNamespace.Controllers
 
             return Ok(new { message });
         }
-[HttpGet("process")]
-public async Task<IActionResult> ApproveFromEmail([FromQuery] string id)
+        [HttpGet("process")]
+        public async Task<IActionResult> ApproveFromEmail([FromQuery] string id)
+        {
+            if (string.IsNullOrEmpty(id) || !ObjectId.TryParse(id, out _))
+                return BadRequest(new { error = "Invalid or missing ID" });
+
+            var (success, message) = await _service.CreateOrApproveDisposalAsync(null, id);
+            if (!success)
+                return BadRequest(new { error = message });
+
+            return Ok(new { message });
+        }
+        [HttpPost("report")]
+public async Task<IActionResult> GetAssetMovementReport([FromBody] AssetMovementReportRequest request)
 {
-    if (string.IsNullOrEmpty(id) || !ObjectId.TryParse(id, out _))
-        return BadRequest(new { error = "Invalid or missing ID" });
-
-    var (success, message) = await _service.CreateOrApproveDisposalAsync(null, id);
-    if (!success)
-        return BadRequest(new { error = message });
-
-    return Ok(new { message });
+    var report = await _service.GenerateAssetMovementReportAsync(request);
+    return Ok(report);
 }
+[HttpGet("movement-details/{id}")]
+public async Task<IActionResult> GetMovementDetailsById(string id)
+{
+    try
+    {
+        var data = await _service.GetMovementDetailsByTransactionId(id);
+        return Ok(data);
+    }
+    catch (ArgumentException ex)
+    {
+        return NotFound(ex.Message);
+    }
+}
+
+
+
     }
 }

@@ -1,5 +1,6 @@
 using AssetTrackingAuthAPI.Models;
 using AssetTrackingAuthAPI.Services;
+using Microsoft.AspNetCore.Http.HttpResults;
 using MongoDB.Driver;
 using YourNamespace.Models;
 
@@ -76,36 +77,51 @@ namespace YourNamespace.Services
                         string nextBody = $"<p>Asset Code {existing.Assetcode} needs your approval.</p><p><a href='{nextUrl}'>Approve</a></p>";
                         await _emailservice.SendEmailAsync(nextUser.Email, "Asset Movement Approval - Next Step", nextBody);
                     }
+                    
 
                     return (true, "Approved current step. Next approver notified.");
                 }
                 else
                 {
                     // Final step
-                   // Final step
-existing.approvalworkflow = null;
-existing.nextapprovalworkflow = null;
-existing.status = "Approved";
-await _assetMovements.ReplaceOneAsync(x => x.Id == id, existing);
+                    // Final step
+                    existing.approvalworkflow = null;
+                    existing.nextapprovalworkflow = null;
+                    existing.status = "Approved";
+                    existing.MovedDate = DateTime.UtcNow;
+                    await _assetMovements.ReplaceOneAsync(x => x.Id == id, existing);
+                    //Console.WriteLine($"Assets count to update: {existing.Assets.Count}");
 
-// Update asset details based on movement
-foreach (var asset in existing.Assets)
-{
-    var update = Builders<Asset>.Update
-   .Set(x => x.Department, asset.Department)
-   .Set(x => x.Custodian, asset.Custodian)
-   .Set(x => x.Group, asset.Group)
-   
-        .Set(x => x.CompanyName, asset.CompanyName)
-        .Set(x => x.SiteName, asset.SiteName)
-        .Set(x => x.BuildingName, asset.BuildingName)
-        .Set(x => x.FloorName, asset.FloorName)
-        .Set(x => x.Room, asset.Room);
+                    // Update asset details based on movement
+                    foreach (var assetCode in existing.Assets.Select(a => a.AssetCode))
+                    {
+                        try
+                        {
+                            var update = Builders<Asset>.Update
+                                .Set(x => x.Department, existing.Department)
+                                .Set(x => x.Custodian, existing.Custodian)
+                                .Set(x => x.Group, existing.Group)
+                                .Set(x => x.CompanyName, existing.Company)
+                                .Set(x => x.SiteName, existing.Site)
+                                .Set(x => x.BuildingName, existing.Building)
+                                .Set(x => x.FloorName, existing.Floor)
+                                .Set(x => x.Room, existing.Room);
 
-    await _assets.UpdateOneAsync(x => x.AssetCode == asset.AssetCode, update);
-}
+                            var result = await _assets.UpdateOneAsync(x => x.AssetCode == assetCode, update);
 
-return (true, "Movement fully approved and asset locations updated.");
+                            if (result.ModifiedCount == 0)
+                            {
+                               Console.WriteLine($"No update done for asset code: {assetCode}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error updating asset {assetCode}: {ex.Message}");
+                        }
+                    }
+
+
+                    return (true, "Movement fully approved and asset locations updated.");
 
                 }
             }
@@ -120,7 +136,8 @@ return (true, "Movement fully approved and asset locations updated.");
 
                 disposal.approvalworkflow = firstWorkflow.Role;
                 disposal.nextapprovalworkflow = firstWorkflow.Role;
-                disposal.status = "Pending";
+                disposal.status = "Created";
+                disposal.ReferenceNumber = $"MOV{DateTime.UtcNow:yyyyMMddHHmmssfff}";
 
                 await _assetMovements.InsertOneAsync(disposal);
 
@@ -137,22 +154,109 @@ return (true, "Movement fully approved and asset locations updated.");
 
             return (false, "Invalid request. Provide disposal or approval id.");
         }
-         
-public async Task<(bool success, string message)> ProcessApprovalAsync(string id)
+
+        public async Task<(bool success, string message)> ProcessApprovalAsync(string id)
+        {
+            var disposal = await _assetMovements.Find(x => x.Id == id).FirstOrDefaultAsync();
+
+            if (disposal == null)
+                return (false, "Movement not found");
+
+            if (disposal.status == "Approved")
+                return (false, "Movement is already approved.");
+
+            disposal.status = "Approved";
+            await _assetMovements.ReplaceOneAsync(x => x.Id == id, disposal);
+
+            return (true, "Movement approved");
+
+
+        }
+        public async Task<List<AssetMovementViewDto>> GetMovementDetailsByTransactionId(string movementId)
 {
-    var disposal = await _assetMovements.Find(x => x.Id == id).FirstOrDefaultAsync();
+    var movement = await _assetMovements.Find(x => x.Id == movementId).FirstOrDefaultAsync();
+    if (movement == null)
+        throw new ArgumentException("AssetMovement not found");
 
-    if (disposal == null)
-        return (false, "Movement not found");
+    var result = new List<AssetMovementViewDto>();
 
-    if (disposal.status == "Approved")
-        return (false, "Movement is already approved.");
+    foreach (var asset in movement.Assets)
+    {
+        var dto = new AssetMovementViewDto
+        {
+            AssetCode = asset.AssetCode,
 
-    disposal.status = "Approved";
-    await _assetMovements.ReplaceOneAsync(x => x.Id == id, disposal);
+            FromCompany = asset.CompanyName,
+            ToCompany = movement.Company,
 
-    return (true, "Movement approved");
+            FromSite = asset.SiteName,
+            ToSite = movement.Site,
+
+            FromBuilding = asset.BuildingName,
+            ToBuilding = movement.Building,
+
+            FromFloor = asset.FloorName,
+            ToFloor = movement.Floor,
+
+            FromRoom = asset.Room,
+            ToRoom = movement.Room,
+
+            FromCustodian = asset.Custodian,
+            ToCustodian = movement.Custodian,
+
+            FromDepartment = asset.Department,
+            ToDepartment = movement.Department
+        };
+
+        result.Add(dto);
+    }
+
+    return result;
 }
+
+       public async Task<List<Asset>> GenerateAssetMovementReportAsync(AssetMovementReportRequest request)
+        {
+            var movementFilter = Builders<AssetMovement>.Filter.Empty;
+            if (!string.IsNullOrEmpty(request.ToGroup))
+                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Group, request.ToGroup);
+            if (!string.IsNullOrEmpty(request.ToCompany))
+                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Company, request.ToCompany);
+            if (!string.IsNullOrEmpty(request.ToSite))
+                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Site, request.ToSite);
+            if (!string.IsNullOrEmpty(request.ToBuilding))
+                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Building, request.ToBuilding);
+            if (!string.IsNullOrEmpty(request.ToFloor))
+                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Floor, request.ToFloor);
+            if (!string.IsNullOrEmpty(request.ToRoom))
+                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Room, request.ToRoom);
+            if (!string.IsNullOrEmpty(request.ToDepartment))
+                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Department, request.ToDepartment);
+            if (!string.IsNullOrEmpty(request.ToCustodian))
+                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Custodian, request.ToCustodian);
+
+            var matchedMovements = await _assetMovements.Find(movementFilter).ToListAsync();
+
+            var result = new List<Asset>();
+
+            foreach (var movement in matchedMovements)
+            {
+                var filteredAssets = movement.Assets.Where(asset =>
+                    (string.IsNullOrEmpty(request.FromGroup) || asset.Group == request.FromGroup) &&
+                    (string.IsNullOrEmpty(request.FromCompany) || asset.CompanyName == request.FromCompany) &&
+                    (string.IsNullOrEmpty(request.FromSite) || asset.SiteName == request.FromSite) &&
+                    (string.IsNullOrEmpty(request.FromBuilding) || asset.BuildingName == request.FromBuilding) &&
+                    (string.IsNullOrEmpty(request.FromFloor) || asset.FloorName == request.FromFloor) &&
+                    (string.IsNullOrEmpty(request.FromRoom) || asset.Room == request.FromRoom) &&
+                    (string.IsNullOrEmpty(request.FromDepartment) || asset.Department == request.FromDepartment) &&
+                    (string.IsNullOrEmpty(request.FromCustodian) || asset.Custodian == request.FromCustodian)
+                ).ToList();
+
+                result.AddRange(filteredAssets);
+            }
+
+            return result;
+        }
+
 
     }
 }

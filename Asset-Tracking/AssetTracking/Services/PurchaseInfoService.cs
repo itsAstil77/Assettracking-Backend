@@ -28,7 +28,7 @@ namespace AssetTrackingAuthAPI.Services
         {
             var exist = await _asset.Find(x => x.PurchaseCode == purchase.PurchaseCode).FirstOrDefaultAsync();
             if (exist == null)
-                return (false, "Assetcode not exists");
+                return (false, "Purchasecode not exists");
             else
                 await _assetCollection.InsertOneAsync(purchase);
             return (true, "asset Added Sucessfully");
