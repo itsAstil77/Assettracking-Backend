@@ -80,5 +80,27 @@ public async Task<IActionResult> CreateDisposal([FromBody] AssetDisposal disposa
             return Ok(new { message = "Asset deleted successfully." });
         }
        
+ [HttpGet("assets/{disposalId}")]
+public async Task<IActionResult> GetAssetsByDisposalId(string disposalId)
+{
+    var assets = await _service.GetAssetsForDisposal(disposalId);
+
+    if (assets == null || !assets.Any())
+        return NotFound("No assets found for the given disposal ID.");
+
+    return Ok(assets);
+}
+[HttpPost("report")]
+public async Task<IActionResult> GetDisposalReport([FromBody] AssetDisposalReportFilterDto filter)
+{
+    var result = await _service.GetDisposalReportAsync(filter);
+
+    if (result == null || !result.Any())
+        return NotFound("No matching asset disposal records found.");
+
+    return Ok(result);
+}
+
+
     }
 }

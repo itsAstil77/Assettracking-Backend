@@ -1,3 +1,5 @@
+using AssetTrackingAuthAPI.Models;
+using Microsoft.AspNetCore.SignalR;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
@@ -28,8 +30,10 @@ namespace YourNamespace.Models
         public string Custodian { get; set; }
 
         public DateTime Duedate { get; set; } = DateTime.UtcNow;
+
+        public List<Asset> Assets { get; set; } = new List<Asset>();
         
 
-        public string remarks{ get; set; }
+        public string remarks { get; set; }
     }
 }

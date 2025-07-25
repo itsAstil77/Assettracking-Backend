@@ -1,6 +1,7 @@
 using AssetTrackingAuthAPI.Models;
 using AssetTrackingAuthAPI.Services;
 using MongoDB.Driver;
+using Org.BouncyCastle.Asn1;
 using YourNamespace.Models;
 
 namespace YourNamespace.Services
@@ -54,8 +55,9 @@ namespace YourNamespace.Services
         var existing = await _assetMovements.Find(x => x.Id == id).FirstOrDefaultAsync();
         if (existing == null)
             return (false, "Disposal not found");
+string previousRole = existing.approvalworkflow; // store it before changing
 
-        var currentWorkflow = await _approval.Find(x => x.Role == existing.approvalworkflow && x.Transaction == "AssetDisposal").FirstOrDefaultAsync();
+        var currentWorkflow = await _approval.Find(x => x.Role == previousRole && x.Transaction == "AssetDisposal").FirstOrDefaultAsync();
         if (currentWorkflow == null)
             return (false, "Current approval step not found");
 
@@ -70,6 +72,20 @@ namespace YourNamespace.Services
             // More approvals needed
             existing.approvalworkflow = nextWorkflow.Role;
             existing.nextapprovalworkflow = nextWorkflow.Role;
+            string approvedByUser = "";
+    var approverUser = await _users.Find(x => x.AssignedRoles.Contains(previousRole)).FirstOrDefaultAsync();
+    if (approverUser != null)
+        approvedByUser = approverUser.UserName;
+
+    // Add approval summary entry
+    existing.ApprovalSummary.Add(new ApprovalRecord
+    {
+        Status = "Approved",
+        RequestApprovedBy = approvedByUser,
+        RequestApprovedDate = DateTime.UtcNow,
+        Remarks = $"Approved by {approvedByUser}"
+    });
+
             await _assetMovements.ReplaceOneAsync(x => x.Id == id, existing);
 
             // Send mail to next approver
@@ -89,7 +105,21 @@ namespace YourNamespace.Services
             // Final step
 existing.approvalworkflow = null;
 existing.nextapprovalworkflow = null;
-existing.status = "Approved";
+                    existing.status = "Approved";
+                    existing.DisposedDate = DateTime.UtcNow;
+                     string finalApprovedBy = "";
+    var finalApprover = await _users.Find(x => x.AssignedRoles.Contains(currentWorkflow.Role)).FirstOrDefaultAsync();
+    if (finalApprover != null)
+        finalApprovedBy = finalApprover.UserName;
+
+    // Add final approval record
+    existing.ApprovalSummary.Add(new ApprovalRecord
+    {
+        Status = "Final Approved",
+        RequestApprovedBy = finalApprovedBy,
+        RequestApprovedDate = DateTime.UtcNow,
+        Remarks = "Final approval completed"
+    });
 await _assetMovements.ReplaceOneAsync(x => x.Id == id, existing);
 
 // Delete assets from Asset collection based on Assetcodes in disposal
@@ -125,8 +155,19 @@ return (true, "Disposal fully approved and associated assets removed.");
 
         disposal.approvalworkflow = firstWorkflow.Role;
         disposal.nextapprovalworkflow = firstWorkflow.Role;
-        disposal.status = "Pending";
-
+         disposal.status = "Created";
+        disposal.ReferenceNumber = $"DISP{DateTime.UtcNow:yyyyMMddHHmmssfff}";
+var createdByUser = await _users.Find(x => x.AssignedRoles.Contains(firstWorkflow.Role)).FirstOrDefaultAsync();
+        disposal.ApprovalSummary = new List<ApprovalRecord>
+        {
+            new ApprovalRecord
+            {
+                Status = "Created",
+                RequestApprovedBy = createdByUser?.UserName ?? "System",
+                RequestApprovedDate = DateTime.UtcNow,
+                Remarks = "Asset movement request created"
+            }
+        };
         await _assetMovements.InsertOneAsync(disposal);
 
         var firstUser = await _users.Find(u => u.AssignedRoles.Contains(firstWorkflow.Role)).FirstOrDefaultAsync();
@@ -159,6 +200,76 @@ public async Task<(bool success, string message)> ProcessApprovalAsync(string id
     return (true, "Disposal approved");
 }
 
+public async Task<List<Asset>> GetAssetsForDisposal(string disposalId)
+{
+    var disposal = await _assetMovements
+        .Find(x => x.Id == disposalId)
+        .FirstOrDefaultAsync();
+
+    if (disposal == null || disposal.Assets == null || disposal.Assets.Count == 0)
+        return new List<Asset>();
+
+    // Return directly from the embedded assets array
+    return disposal.Assets;
+}
+
+public async Task<List<Asset>> GetDisposalReportAsync(AssetDisposalReportFilterDto filter)
+{
+    var disposalFilter = Builders<AssetDisposal>.Filter.Empty;
+
+    // Filter by date range (DisposedDate)
+    if (filter.StartDate.HasValue && filter.EndDate.HasValue)
+    {
+        disposalFilter &= Builders<AssetDisposal>.Filter.And(
+            Builders<AssetDisposal>.Filter.Gte(x => x.DisposedDate, filter.StartDate.Value),
+            Builders<AssetDisposal>.Filter.Lte(x => x.DisposedDate, filter.EndDate.Value)
+        );
+    }
+
+    // Only approved disposals
+    disposalFilter &= Builders<AssetDisposal>.Filter.Eq(x => x.status, "Approved");
+
+    var disposalRecords = await _assetMovements.Find(disposalFilter).ToListAsync();
+
+    // Flatten all assets from matching disposals
+    var allAssets = disposalRecords.SelectMany(x => x.Assets).ToList();
+
+    // Apply asset-level filters
+    if (!string.IsNullOrEmpty(filter.Group))
+        allAssets = allAssets.Where(a => a.Group == filter.Group).ToList();
+
+    if (!string.IsNullOrEmpty(filter.CompanyName))
+        allAssets = allAssets.Where(a => a.CompanyName == filter.CompanyName).ToList();
+
+    if (!string.IsNullOrEmpty(filter.SiteName))
+        allAssets = allAssets.Where(a => a.SiteName == filter.SiteName).ToList();
+
+    if (!string.IsNullOrEmpty(filter.BuildingName))
+        allAssets = allAssets.Where(a => a.BuildingName == filter.BuildingName).ToList();
+
+    if (!string.IsNullOrEmpty(filter.FloorName))
+        allAssets = allAssets.Where(a => a.FloorName == filter.FloorName).ToList();
+
+    if (!string.IsNullOrEmpty(filter.Room))
+        allAssets = allAssets.Where(a => a.Room == filter.Room).ToList();
+
+    if (!string.IsNullOrEmpty(filter.Custodian))
+        allAssets = allAssets.Where(a => a.Custodian == filter.Custodian).ToList();
+
+    if (!string.IsNullOrEmpty(filter.Department))
+        allAssets = allAssets.Where(a => a.Department == filter.Department).ToList();
+
+    if (!string.IsNullOrEmpty(filter.MainCategory))
+        allAssets = allAssets.Where(a => a.MainCategory == filter.MainCategory).ToList();
+
+    if (!string.IsNullOrEmpty(filter.SubCategory))
+        allAssets = allAssets.Where(a => a.SubCategory == filter.SubCategory).ToList();
+
+    if (!string.IsNullOrEmpty(filter.SubSubCategory))
+        allAssets = allAssets.Where(a => a.SubSubCategory == filter.SubSubCategory).ToList();
+
+    return allAssets;
+}
 
 
     }

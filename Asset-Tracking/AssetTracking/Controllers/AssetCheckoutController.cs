@@ -31,11 +31,11 @@ namespace YourNamespace.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] AssetCheckout movement)
-        {
-            await _service.CreateAsync(movement);
-            return Ok(new { message = "Asset Checkout successfully." });
-        }
+public async Task<IActionResult> Create([FromBody] AssetCheckout checkout)
+{
+    await _service.createAsyncAssetcheckout(checkout);
+    return Ok(new { message = "Asset check-out completed and asset details updated." });
+}
 
         [HttpPut("updateassetCheckout{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] AssetCheckout updated)
