@@ -252,49 +252,93 @@ string previousRole = existing.approvalworkflow; // store it before changing
     return result;
 }
 
-       public async Task<List<Asset>> GenerateAssetMovementReportAsync(AssetMovementReportRequest request)
+     public async Task<List<AssetMovementReportDto>> GenerateAssetMovementReportAsync(AssetMovementReportRequest request)
+{
+    var movementFilter = Builders<AssetMovement>.Filter.Empty;
+
+    // Filter To details from AssetMovement
+    if (request.ToGroup != null && request.ToGroup.Any())
+        movementFilter &= Builders<AssetMovement>.Filter.In(x => x.Group, request.ToGroup);
+    if (request.ToCompany != null && request.ToCompany.Any())
+        
+        movementFilter &= Builders<AssetMovement>.Filter.In(x => x.Company, request.ToCompany);
+   if (request.ToSite != null && request.ToSite.Any())
+        movementFilter &= Builders<AssetMovement>.Filter.In(x => x.Site, request.ToSite);
+    if (request.ToBuilding != null && request.ToBuilding.Any())
+        movementFilter &= Builders<AssetMovement>.Filter.In(x => x.Building, request.ToBuilding);
+   if (request.ToFloor != null && request.ToFloor.Any())
+        movementFilter &= Builders<AssetMovement>.Filter.In(x => x.Floor, request.ToFloor);
+    if (request.ToRoom != null && request.ToRoom.Any())
+        movementFilter &= Builders<AssetMovement>.Filter.In(x => x.Room, request.ToRoom);
+    if (request.ToDepartment != null && request.ToDepartment.Any())
+        movementFilter &= Builders<AssetMovement>.Filter.In(x => x.Department, request.ToDepartment);
+    if (request.ToCustodian != null && request.ToCustodian.Any())
+        movementFilter &= Builders<AssetMovement>.Filter.In(x => x.Custodian, request.ToCustodian);
+
+    // Date Range Filter (optional)
+    if (request.StartDate.HasValue && request.EndDate.HasValue)
+    {
+        movementFilter &= Builders<AssetMovement>.Filter.And(
+            Builders<AssetMovement>.Filter.Gte(x => x.MovedDate, request.StartDate.Value),
+            Builders<AssetMovement>.Filter.Lte(x => x.MovedDate, request.EndDate.Value)
+        );
+    }
+
+    var matchedMovements = await _assetMovements.Find(movementFilter).ToListAsync();
+
+    var result = new List<AssetMovementReportDto>();
+
+    foreach (var movement in matchedMovements)
+    {
+        foreach (var asset in movement.Assets)
         {
-            var movementFilter = Builders<AssetMovement>.Filter.Empty;
-            if (!string.IsNullOrEmpty(request.ToGroup))
-                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Group, request.ToGroup);
-            if (!string.IsNullOrEmpty(request.ToCompany))
-                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Company, request.ToCompany);
-            if (!string.IsNullOrEmpty(request.ToSite))
-                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Site, request.ToSite);
-            if (!string.IsNullOrEmpty(request.ToBuilding))
-                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Building, request.ToBuilding);
-            if (!string.IsNullOrEmpty(request.ToFloor))
-                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Floor, request.ToFloor);
-            if (!string.IsNullOrEmpty(request.ToRoom))
-                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Room, request.ToRoom);
-            if (!string.IsNullOrEmpty(request.ToDepartment))
-                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Department, request.ToDepartment);
-            if (!string.IsNullOrEmpty(request.ToCustodian))
-                movementFilter &= Builders<AssetMovement>.Filter.Eq(x => x.Custodian, request.ToCustodian);
+            // Apply From filters
+            if (request.FromGroup != null && request.FromGroup.Any() && !request.FromGroup.Contains(asset.Group)) continue;
+if (request.FromCompany != null && request.FromCompany.Any() && !request.FromCompany.Contains(asset.CompanyName)) continue;
+if (request.FromSite != null && request.FromSite.Any() && !request.FromSite.Contains(asset.SiteName)) continue;
+if (request.FromBuilding != null && request.FromBuilding.Any() && !request.FromBuilding.Contains(asset.BuildingName)) continue;
+if (request.FromFloor != null && request.FromFloor.Any() && !request.FromFloor.Contains(asset.FloorName)) continue;
+if (request.FromRoom != null && request.FromRoom.Any() && !request.FromRoom.Contains(asset.Room)) continue;
+if (request.FromDepartment != null && request.FromDepartment.Any() && !request.FromDepartment.Contains(asset.Department)) continue;
+if (request.FromCustodian != null && request.FromCustodian.Any() && !request.FromCustodian.Contains(asset.Custodian)) continue;
 
-            var matchedMovements = await _assetMovements.Find(movementFilter).ToListAsync();
 
-            var result = new List<Asset>();
-
-            foreach (var movement in matchedMovements)
+            result.Add(new AssetMovementReportDto
             {
-                var filteredAssets = movement.Assets.Where(asset =>
-                    (string.IsNullOrEmpty(request.FromGroup) || asset.Group == request.FromGroup) &&
-                    (string.IsNullOrEmpty(request.FromCompany) || asset.CompanyName == request.FromCompany) &&
-                    (string.IsNullOrEmpty(request.FromSite) || asset.SiteName == request.FromSite) &&
-                    (string.IsNullOrEmpty(request.FromBuilding) || asset.BuildingName == request.FromBuilding) &&
-                    (string.IsNullOrEmpty(request.FromFloor) || asset.FloorName == request.FromFloor) &&
-                    (string.IsNullOrEmpty(request.FromRoom) || asset.Room == request.FromRoom) &&
-                    (string.IsNullOrEmpty(request.FromDepartment) || asset.Department == request.FromDepartment) &&
-                    (string.IsNullOrEmpty(request.FromCustodian) || asset.Custodian == request.FromCustodian)
-                ).ToList();
+                AssetCode = asset.AssetCode,
+                AssetDescription = asset.AssetDescription,
+                MainCategory = asset.MainCategory,
+                SubCategory = asset.SubCategory,
+                SubSubCategory = asset.SubSubCategory,
 
-                result.AddRange(filteredAssets);
-            }
+                FromGroup = asset.Group,
+                FromCompany = asset.CompanyName,
+                FromSite = asset.SiteName,
+                FromBuilding = asset.BuildingName,
+                FromFloor = asset.FloorName,
+                FromRoom = asset.Room,
+                FromDepartment = asset.Department,
+                FromCustodian = asset.Custodian,
 
-            return result;
+                ToGroup = movement.Group,
+                ToCompany = movement.Company,
+                ToSite = movement.Site,
+                ToBuilding = movement.Building,
+                ToFloor = movement.Floor,
+                ToRoom = movement.Room,
+                ToDepartment = movement.Department,
+                ToCustodian = movement.Custodian,
+                LastApproval=movement.lastapprovalworkflow,
+
+                MovementDate = movement.MovedDate ,
+                MovementInitiatedDate = movement.RequestDate ,
+                ReferenceNumber = movement.ReferenceNumber
+            });
         }
+    }
 
+    return result;
+}
 
     }
 }

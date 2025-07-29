@@ -1,22 +1,26 @@
 public class AssetMovementReportRequest
 {
-    // TO location (from AssetMovement)
-    public string? ToGroup{ get; set; }
-    public string? ToCompany { get; set; }
-    public string? ToSite { get; set; }
-    public string? ToBuilding { get; set; }
-    public string? ToFloor { get; set; }
-    public string? ToRoom { get; set; }
-    public string? ToDepartment { get; set; }
-    public string? ToCustodian { get; set; }
+    // TO location
+    public List<string>? ToGroup { get; set; }
+    public List<string>? ToCompany { get; set; }
+    public List<string>? ToSite { get; set; }
+    public List<string>? ToBuilding { get; set; }
+    public List<string>? ToFloor { get; set; }
+    public List<string>? ToRoom { get; set; }
+    public List<string>? ToDepartment { get; set; }
+    public List<string>? ToCustodian { get; set; }
 
     // FROM location (inside each Asset)
-    public string? FromGroup{ get; set; }
-    public string? FromCompany { get; set; }
-    public string? FromSite { get; set; }
-    public string? FromBuilding { get; set; }
-    public string? FromFloor { get; set; }
-    public string? FromRoom { get; set; }
-    public string? FromDepartment { get; set; }
-    public string? FromCustodian { get; set; }
+    public List<string>? FromGroup { get; set; }
+    public List<string>? FromCompany { get; set; }
+    public List<string>? FromSite { get; set; }
+    public List<string>? FromBuilding { get; set; }
+    public List<string>? FromFloor { get; set; }
+    public List<string>? FromRoom { get; set; }
+    public List<string>? FromDepartment { get; set; }
+    public List<string>? FromCustodian { get; set; }
+    
+
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
 }
