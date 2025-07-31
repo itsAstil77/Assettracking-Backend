@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using Microsoft.Extensions.Options;
 using AssetTrackingAuthAPI.Models;
 using AssetTrackingAuthAPI.Config;
+using System.Linq.Expressions;
 
 namespace AssetTrackingAuthAPI.Services
 {
@@ -17,7 +18,7 @@ namespace AssetTrackingAuthAPI.Services
             _assetCollection = db.GetCollection<Asset>("Assets");
         }
 
-        public async Task<List<Asset>> GetFilteredReportAsync(AssetReportRequest filter)
+     public async Task<List<Asset>> GetFilteredReportAsync(AssetReportRequest filter)
 {
     var builder = Builders<Asset>.Filter;
     var filters = new List<FilterDefinition<Asset>>();
@@ -51,19 +52,20 @@ namespace AssetTrackingAuthAPI.Services
     if (filter.SubSubCategory != null && filter.SubSubCategory.Any())
         filters.Add(builder.In(x => x.SubSubCategory, filter.SubSubCategory));
 
-    // Other fields
+    // Department & Custodian (optional)
     if (filter.Department != null && filter.Department.Any())
         filters.Add(builder.In(x => x.Department, filter.Department));
 
     if (filter.Custodian != null && filter.Custodian.Any())
         filters.Add(builder.In(x => x.Custodian, filter.Custodian));
 
-    if (filter.AssetCode != null && filter.AssetCode.Any())
-        filters.Add(builder.In(x => x.AssetCode, filter.AssetCode));
+    // Combine all filters
+    var finalFilter = filters.Any() ? builder.And(filters) : builder.Empty;
 
-    var combinedFilter = filters.Count > 0 ? builder.And(filters) : builder.Empty;
-    return await _assetCollection.Find(combinedFilter).ToListAsync();
+    return await _assetCollection.Find(finalFilter).ToListAsync();
 }
+
+
 
     }
 }

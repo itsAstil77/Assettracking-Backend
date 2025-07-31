@@ -82,10 +82,12 @@ public class AuthService
         var user = await _users.Find(u => u.Email == email).FirstOrDefaultAsync();
         if (user == null || user.OTP != otp || user.OTPExpiry < DateTime.UtcNow)
             return "Invalid or expired OTP";
+        var message = "successful";
+        return message;    
 
         // OTP verified, generate JWT token
-        var token = _tokenService.GenerateToken(user);
-        return token;  // return the JWT token on successful OTP verification
+        // var token = _tokenService.GenerateToken(user);
+        //return token;  // return the JWT token on successful OTP verification
     }
 
     public async Task<string> ResendOtpAsync(string email)

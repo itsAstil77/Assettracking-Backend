@@ -16,6 +16,8 @@ public class AssetReportRequest
     // Other filters
     public List<string>? Department { get; set; }
     public List<string>? Custodian { get; set; }
+   //public string? SearchText { get; set; }
 
-    public List<string>? AssetCode { get; set; }
+
+   // public List<string>? AssetCode { get; set; }
 }

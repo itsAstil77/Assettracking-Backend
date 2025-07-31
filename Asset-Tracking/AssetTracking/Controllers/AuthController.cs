@@ -39,7 +39,7 @@ public class AuthController : ControllerBase
         return Ok(new
         {
             message = "OTP verified successfully",
-            token = token
+            
         });
     }
 
