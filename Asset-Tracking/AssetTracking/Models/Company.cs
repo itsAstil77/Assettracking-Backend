@@ -11,7 +11,9 @@ namespace AssetTrackingAuthAPI.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string GroupId { get; set; } = "";
 
-        public string GroupName { get; set; } = ""; 
+        public string GroupName { get; set; } = "";
+
+        public string Level { get; set; } = "Company";
 
         public string CompanyCode { get; set; } = "";
         public string CompanyName { get; set; } = "";

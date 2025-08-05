@@ -12,6 +12,7 @@ namespace AssetTrackingAuthAPI.Models
         public string FloorCode { get; set; } = "";
         public string FloorName { get; set; } = "";
         public string Description { get; set; } = "";
+        public string Level { get; set; } = "Floor";
         public bool IsActive { get; set; } = true;
 
         [BsonRepresentation(BsonType.ObjectId)]

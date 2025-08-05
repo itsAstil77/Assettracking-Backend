@@ -12,6 +12,7 @@ namespace AssetTrackingAuthAPI.Models
         public string RoomCode { get; set; } = "";
         public string RoomName { get; set; } = "";
         public string Description { get; set; } = "";
+        public string Level { get; set; } = "Room";
         public bool IsActive { get; set; } = true;
 
         [BsonRepresentation(BsonType.ObjectId)]

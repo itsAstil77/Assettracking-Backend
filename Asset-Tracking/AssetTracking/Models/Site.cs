@@ -12,6 +12,8 @@ namespace AssetTrackingAuthAPI.Models
         public string CompanyId { get; set; } = null!;
         public string CompanyName { get; set; } = null!;
 
+        public string Level { get; set; } = "Site";
+
         public string SiteCode { get; set; } = null!;
         public string SiteName { get; set; } = null!;
         public string? Description { get; set; }

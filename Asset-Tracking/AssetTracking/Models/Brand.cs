@@ -14,6 +14,7 @@ namespace AssetTrackingAuthAPI.Models
         public string ParentTypeName { get; set; } = "SubSubCategory";
         public string CategoryCode { get; set; } = "";
         public string CategoryName { get; set; } = "";
+        public string CategoryType { get; set; } = "Brand";
         public bool IsActive { get; set; } = true;
     }
 

@@ -12,6 +12,7 @@ namespace AssetTrackingAuthAPI.Models
         public string GroupCode { get; set; } = "";
         public string GroupName { get; set; } = "";
         public bool IsActive { get; set; } = true;
+        public string Level { get; set; } = "Group";
     }
 
     public class GroupRequest
