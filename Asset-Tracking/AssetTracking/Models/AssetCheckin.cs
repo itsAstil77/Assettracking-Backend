@@ -17,12 +17,12 @@ namespace YourNamespace.Models
 
         public string newcustodian{ get; set; }
         public string department{ get; set; }
-        public string company { get; set; }
-        public string site{ get; set; }
-        public string building{ get; set; }
+        public string companyName { get; set; }
+        public string SiteName{ get; set; }
+        public string buildingName{ get; set; }
 
-        public string floor{ get; set; }
-        public string room { get; set; }
+        public string floorName{ get; set; }
+        public string roomName { get; set; }
 
         public DateTime Duedate { get; set; } = DateTime.UtcNow;
         

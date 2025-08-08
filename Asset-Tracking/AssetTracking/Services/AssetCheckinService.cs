@@ -38,11 +38,11 @@ namespace YourNamespace.Services
         var update = Builders<Asset>.Update
             .Set(a => a.Custodian, checkin.newcustodian)
             .Set(a => a.Department, checkin.department)
-            .Set(a => a.CompanyName, checkin.company)
-            .Set(a => a.SiteName, checkin.site)
-            .Set(a => a.BuildingName, checkin.building)
-            .Set(a => a.FloorName, checkin.floor)
-            .Set(a => a.Room, checkin.room);
+            .Set(a => a.CompanyName, checkin.companyName)
+            .Set(a => a.SiteName, checkin.SiteName)
+            .Set(a => a.BuildingName, checkin.buildingName)
+            .Set(a => a.FloorName, checkin.floorName)
+            .Set(a => a.Room, checkin.roomName);
 
         await _assets.UpdateOneAsync(a => a.AssetCode == asset.AssetCode, update);
     }
