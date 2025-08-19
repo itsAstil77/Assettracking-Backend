@@ -94,24 +94,29 @@ namespace AssetTrackingAuthAPI.Services
     }
 
     int quantity = asset.Quantity > 0 ? asset.Quantity : 1;
-    string prefix = asset.MainCategory?.ToUpper()?.Replace(" ", "") ?? "ASSET";
 
-    // Count existing assets with the same prefix
-    var existingCount = await _assetCollection.CountDocumentsAsync(
-        Builders<Asset>.Filter.Regex("AssetCode", new BsonRegularExpression($"^{prefix}-"))
-    );
+    // 🔍 Find the last AssetCode (sort descending)
+    var lastAsset = await _assetCollection
+        .Find(Builders<Asset>.Filter.Empty)
+        .SortByDescending(a => a.AssetCode)
+        .FirstOrDefaultAsync();
+
+    int lastNumber = 0;
+    if (lastAsset != null && int.TryParse(lastAsset.AssetCode, out int parsed))
+    {
+        lastNumber = parsed;
+    }
 
     // 🔑 Generate a unique purchase code per batch
     string purchaseCode = $"PUR-{DateTime.UtcNow:yyyyMMddHHmmssfff}";
 
     var assetList = new List<Asset>();
-
     for (int i = 1; i <= quantity; i++)
     {
         var newAsset = new Asset
         {
             Id = ObjectId.GenerateNewId().ToString(),
-            AssetCode = $"{prefix}-{(existingCount + i):D4}",
+            AssetCode = $"{(lastNumber + i):D4}", // ✅ Continue from last number
             CompanyName = asset.CompanyName,
             SiteName = asset.SiteName,
             BuildingName = asset.BuildingName,
@@ -132,7 +137,7 @@ namespace AssetTrackingAuthAPI.Services
             AssetStatus = asset.AssetStatus,
             AssetCondition = asset.AssetCondition,
             AssetType = asset.AssetType,
-            PurchaseCode = purchaseCode // ✅ Set same code for all in this batch
+            PurchaseCode = purchaseCode
         };
 
         assetList.Add(newAsset);
@@ -149,32 +154,57 @@ namespace AssetTrackingAuthAPI.Services
             return count > 0;
         }
         public async Task<List<Asset>> GetAllAssetsAsync()
+        {
+            return await _assetCollection.Find(_ => true).ToListAsync();
+        }
+
+        // Update asset by Id
+        public async Task<(bool success, string message)> UpdateAssetAsync(string id, Asset updatedAsset)
+        {
+            var existingAsset = await _assetCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
+            if (existingAsset == null)
+                return (false, "Asset not found.");
+
+            updatedAsset.Id = id;
+            updatedAsset.AssetCode = existingAsset.AssetCode; // Preserve asset code
+
+            await _assetCollection.ReplaceOneAsync(x => x.Id == id, updatedAsset);
+            return (true, "Asset updated successfully.");
+        }
+
+        // Delete asset by Id
+        public async Task<(bool success, string message)> DeleteAssetAsync(string id)
+        {
+            var result = await _assetCollection.DeleteOneAsync(x => x.Id == id);
+            if (result.DeletedCount == 0)
+                return (false, "Asset not found or already deleted.");
+
+            return (true, "Asset deleted successfully.");
+        }
+
+         public async Task<List<string>> PreviewNextAssetCodes(int quantity)
 {
-    return await _assetCollection.Find(_ => true).ToListAsync();
+    // Get the last asset by AssetCode (sorted descending)
+    var lastAsset = await _assetCollection
+        .Find(Builders<Asset>.Filter.Empty)
+        .SortByDescending(a => a.AssetCode)
+        .FirstOrDefaultAsync();
+
+    int lastNumber = 0;
+    if (lastAsset != null && int.TryParse(lastAsset.AssetCode, out int parsed))
+    {
+        lastNumber = parsed;
+    }
+
+    // Generate next asset codes
+    var codes = new List<string>();
+    for (int i = 1; i <= quantity; i++)
+    {
+        codes.Add($"{(lastNumber + i):D4}");
+    }
+
+    return codes;
 }
 
-// Update asset by Id
-public async Task<(bool success, string message)> UpdateAssetAsync(string id, Asset updatedAsset)
-{
-    var existingAsset = await _assetCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
-    if (existingAsset == null)
-        return (false, "Asset not found.");
-
-    updatedAsset.Id = id;
-    updatedAsset.AssetCode = existingAsset.AssetCode; // Preserve asset code
-
-    await _assetCollection.ReplaceOneAsync(x => x.Id == id, updatedAsset);
-    return (true, "Asset updated successfully.");
-}
-
-// Delete asset by Id
-public async Task<(bool success, string message)> DeleteAssetAsync(string id)
-{
-    var result = await _assetCollection.DeleteOneAsync(x => x.Id == id);
-    if (result.DeletedCount == 0)
-        return (false, "Asset not found or already deleted.");
-
-    return (true, "Asset deleted successfully.");
-}
     }
 }

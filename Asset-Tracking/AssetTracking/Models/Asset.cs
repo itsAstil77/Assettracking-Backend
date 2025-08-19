@@ -7,6 +7,8 @@ namespace AssetTrackingAuthAPI.Models
         [BsonId]
         public required string Id { get; set; }
 
+        public List<string> GeneratedAssetCodes { get; set; } = new List<string>();
+
         public required string AssetCode { get; set; }
         public required string CompanyName { get; set; }
         public required string SiteName { get; set; }

@@ -45,6 +45,17 @@ namespace AssetTrackingAuthAPI.Controllers
             return Ok(new { message });
         }
 
+         [HttpGet("previewcodes")]
+public async Task<IActionResult> PreviewCodes([FromQuery] int quantity)
+{
+    if (quantity <= 0)
+        return BadRequest(new { error = "Quantity must be greater than 0" });
+
+    var codes = await _assetService.PreviewNextAssetCodes(quantity);
+    return Ok(codes);
+}
+
+
         // Delete Asset by Id
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> DeleteAsset(string id)
